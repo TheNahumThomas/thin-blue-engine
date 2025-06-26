@@ -36,10 +36,9 @@ log_structure -> interface
 alert_object -> interface {
     UID
     Priority
-    Type
-    Set
-    Insight
-    TimeOffset
+    eventType
+    logType
+    timestamp
 }
 
 go provision_alert_queue{
