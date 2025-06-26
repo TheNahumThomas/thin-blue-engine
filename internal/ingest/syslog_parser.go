@@ -2,80 +2,101 @@ package ingest
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/influxdata/go-syslog/v3"
-	"github.com/influxdata/go-syslog/v3/rfc5424"
-	rfc "github.com/influxdata/go-syslog/v3/rfc5424"
+	syslog "github.com/leodido/go-syslog/v4"
+	"github.com/leodido/go-syslog/v4/rfc5424"
 )
 
 type SyslogParser struct {
 	parser syslog.Machine
 }
 
-func NewSyslogParser() *SyslogParser {
+func NewSyslogParser(options ...syslog.MachineOption) *SyslogParser {
 	return &SyslogParser{
-		parser: rfc.NewMachine(rfc.WithBestEffort()),
+		parser: rfc5424.NewParser(rfc5424.WithBestEffort()),
 	}
-
 }
 
-func (p *SyslogParser) Parse(line []byte) (*LogEvent, error) {
-	msg := NewLogEvent()
-	parsed, err := p.parser.Parse(line)
-	base, ok := parsed.(*rfc5424.SyslogMessage)
-	if !ok {
-		return msg, fmt.Errorf("Couldn't retrieve RFC5424.SysLogMessage Object: %w", err)
-	}
+func (p *SyslogParser) BuildLogObject(syslog []byte) (*LogEvent, error) {
+	l := NewLogEvent()
+
+	parsedSyslog, err := p.Parse(syslog)
 	if err != nil {
-		return msg, fmt.Errorf("failed to parse syslog message: %w", err)
-	}
-	if parsed == nil {
-		return &LogEvent{}, fmt.Errorf("parsed syslog message is nil")
+		return nil, fmt.Errorf("Failed to build log object from syslog message: %w", err)
 	}
 
-	msg = &LogEvent{
-		EventTimestamp:  time.Now(),
-		Host:            "",
-		Application:     "",
-		ProcessID:       "",
-		MessageID:       "",
-		SourcePort:      0,
-		DestinationPort: 0,
-		Protocol:        "",
-		Message:         "",
-		RawJSON:         "",
-		CustomFields:    make(map[string]interface{}),
+	l.CustomFields = make(map[string]interface{})
+
+	if _, err := p.CopyTo(l, parsedSyslog); err != nil {
+		return nil, fmt.Errorf("Failed to copy syslog message to log object: %w", err)
+	}
+	// WRITE CODE FOR REGEXP PARSING OF SDID AND SD-PARAMS
+
+	return l, nil
+}
+
+func (p *SyslogParser) Parse(line []byte) (syslog.Message, error) {
+	parsedMsg, err := p.parser.Parse(line)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to pass syslog message to parser: %w", err)
+	}
+
+	return parsedMsg, nil
+}
+
+func (p *SyslogParser) CopyTo(l *LogEvent, m syslog.Message) (*LogEvent, error) {
+
+	base, ok := m.(*rfc5424.SyslogMessage)
+	if !ok {
+		return nil, fmt.Errorf("Failed to cast syslog message to rfc5424.SyslogMessage (syslog_parser.CopyTo)")
 	}
 
 	if base.Timestamp != nil {
-		msg.EventTimestamp = *base.Timestamp
+		l.EventTimestamp = *base.Timestamp
+	} else {
+		l.EventTimestamp = l.EngineTimestamp
 	}
 	if base.Priority != nil {
-		msg.LoggerPriority = uint8(*base.Priority)
+		l.LoggerPriority = *base.Priority
+	} else {
+		l.LoggerPriority = 0
 	}
 	if base.Hostname != nil {
-		msg.Host = *base.Hostname
+		l.Host = *base.Hostname
+	} else {
+		l.Host = ""
 	}
 	if base.Appname != nil {
-		msg.Application = *base.Appname
+		l.Application = *base.Appname
+	} else {
+		l.Application = ""
 	}
 	if base.ProcID != nil {
-		msg.ProcessID = *base.ProcID
+		l.ProcessID = *base.ProcID
+	} else {
+		l.ProcessID = ""
 	}
 	if base.MsgID != nil {
-		msg.MessageID = *base.MsgID
+		l.MessageID = *base.MsgID
+	} else {
+		l.MessageID = ""
 	}
 	if base.StructuredData != nil {
 		for sdID, params := range *base.StructuredData {
-			fieldMap := make(map[string]string)
+			fieldMap := make(map[string]interface{})
 			for paramName, paramValue := range params {
 				fieldMap[paramName] = paramValue
 			}
-			msg.CustomFields[string(sdID)] = fieldMap
+			l.CustomFields[string(sdID)] = fieldMap
 		}
+	} else {
+		l.CustomFields = make(map[string]interface{})
 	}
 
-	return msg, nil
-
+	return &LogEvent{}, nil
 }
+
+// func getStructuredData(customFields map[string]interface{}) map[string]interface{} {
+// 	re :=
+
+// }

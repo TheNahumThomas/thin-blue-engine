@@ -77,17 +77,6 @@ func NewLogEvent() *LogEvent {
 // 	MatchFormat(line []byte) bool
 // }
 
-func RfcStructuredDataFromRules(userRuleFields []string,parsedStructuredData map[string]interface{}) map[string]interface{} {
-	
-
-	
-	for i := range userRuleFields {
-		if userRuleFields[i] ==  { 
-			
-	}
-
-}
-
 func SetSourceAddr(ipstring string) (*[16]byte, error) {
 	ip := net.ParseIP(ipstring)
 	if ip == nil {
@@ -102,5 +91,3 @@ func SetSourceAddr(ipstring string) (*[16]byte, error) {
 	copy(addr[:], ip.To16())
 	return &addr, nil
 }
-
-

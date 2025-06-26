@@ -29,9 +29,9 @@ func main() {
 	go api.StartSysLogUDPServer(c.port)
 	parser := ingest.NewSyslogParser()
 	i := []byte(`<165>1 2025-06-22T20:03:13.123456+01:00 myhost.example.com myapp AUTH-AUDIT 12345 [audit@18060 op="login" result="success" user="john.doe" ip="192.168.1.100" sessionID="ABCDEF123456" clientType="web-browser"][rule_engine@32473 ruleId="LoginSuccess" confidence="0.9" tags="authentication,behavior"] \xEF\xBB\xBFUser 'john.doe' from 192.168.1.100 successfully logged in to MyApp via web browser. Session ID: ABCDEF123456.`)
-	msg, err := parser.Parse(i)
+	_, err = parser.BuildLogObject(i)
 	if err != nil {
 		log.Panicln("Failed to parse syslog message: \n", err)
 	}
-	fmt.Println("Parsed Syslog Message:\n", msg.LoggerPriority, "\n", msg.Application, "\n", msg.EventTimestamp, "\n", msg.Message, "\n", msg.CustomFields)
+
 }
